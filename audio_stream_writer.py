@@ -40,7 +40,7 @@ class AudioStreamWriter(object):
     self._sample_rate = sample_rate
     self._bitdepth = bitdepth
     self._num_channels = num_channels
-    self._f = file(file_name, 'wb')
+    self._f = open(file_name, 'wb')
     self._num_bytes = 0
     self._write_header(False)
   
@@ -72,7 +72,7 @@ class AudioStreamWriter(object):
       scale = (1 << (bitdepth - 1)) - 1
       # pylint: disable-msg=C6407
       scaled_signal = scaled_signal * scale
-      scaled_signal = numpy.array(scaled_signal, dtype='i%d' % (bitdepth / 8))
+      scaled_signal = numpy.array(scaled_signal, dtype='i%d' % (bitdepth // 8))
 
     return scaled_signal
   
@@ -85,11 +85,11 @@ class AudioStreamWriter(object):
     
     current_position = f.tell()
     f.seek(0)
-    f.write('RIFF')
+    f.write(b'RIFF')
     f.write(struct.pack('<L', total_size))
-    f.write('WAVEfmt ')
-    bitrate = self._sample_rate * self._num_channels * (self._bitdepth / 8)
-    bits_per_sample = self._num_channels * (self._bitdepth / 8)
+    f.write(b'WAVEfmt ')
+    bitrate = self._sample_rate * self._num_channels * (self._bitdepth // 8)
+    bits_per_sample = self._num_channels * (self._bitdepth // 8)
     f.write(struct.pack(
         '<LHHLLHH',
         16,
@@ -99,7 +99,7 @@ class AudioStreamWriter(object):
         bitrate,
         bits_per_sample,
         self._bitdepth))
-    f.write('data')
+    f.write(b'data')
     f.write(struct.pack('<L', self._num_bytes))
     if restore_position:
       f.seek(current_position)

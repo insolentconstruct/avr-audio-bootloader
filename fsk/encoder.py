@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/env python3
 #
 # Copyright 2013 Emilie Gillet.
 #
@@ -19,8 +19,10 @@
 #
 # Fsk encoder for converting firmware .bin files into .
 
+import logging
 import numpy
 import optparse
+import sys
 import zlib
 
 from avr_audio_bootloader import audio_stream_writer
@@ -66,11 +68,11 @@ class FskEncoder(object):
   def _code_packet(self, data):
     assert len(data) <= self._packet_size
     if len(data) != self._packet_size:
-      data = data + '\x00' * (self._packet_size - len(data))
+      data = data + b'\x00' * (self._packet_size - len(data))
 
     crc = zlib.crc32(data) & 0xffffffff
 
-    data = map(ord, data)
+    data = list(data)
     crc_bytes = [crc >> 24, (crc >> 16) & 0xff, (crc >> 8) & 0xff, crc & 0xff]
     bytes = [0x55] * 4 + data + crc_bytes
     
@@ -84,11 +86,11 @@ class FskEncoder(object):
     return self._encode(symbol_stream)
 
   def code(self, data, page_size=1024, blank_duration=0.06):
-    yield numpy.zeros((1.0 * self._sr, 1)).ravel()
+    yield numpy.zeros((self._sr, 1)).ravel()
     yield self._code_blank(1.0)
     if len(data) % page_size != 0:
       tail = page_size - (len(data) % page_size)
-      data += '\xff' * tail
+      data += b'\xff' * tail
     
     offset = 0
     remaining_bytes = len(data)
@@ -97,7 +99,7 @@ class FskEncoder(object):
       size = min(remaining_bytes, self._packet_size)
       yield self._code_packet(data[offset:offset+size])
       num_packets_written += 1
-      if num_packets_written == page_size / self._packet_size:
+      if num_packets_written == page_size // self._packet_size:
         yield self._code_blank(blank_duration)
         num_packets_written = 0
       remaining_bytes -= size
@@ -165,10 +167,12 @@ def main():
       metavar='FILE')
   
   options, args = parser.parse_args()
-  data = file(args[0], 'rb').read()
   if len(args) != 1:
     logging.fatal('Specify one, and only one firmware .bin file!')
     sys.exit(1)
+
+  with open(args[0], 'rb') as f:
+    data = f.read()
 
   output_file = options.output_file
   if not output_file:
